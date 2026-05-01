@@ -28,7 +28,7 @@ export function Input({ label, error, iconName, rightIconName, onRightIconPress,
         )}
         <TextInput
           style={[styles.input, style]}
-          placeholderTextColor={Theme.colors.onSurfaceVariant}
+          placeholderTextColor={Theme.colors.placeholder}
           onFocus={(e) => {
             setIsFocused(true);
             props.onFocus?.(e);

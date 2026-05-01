@@ -1,15 +1,39 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { Theme } from '@/constants/Theme';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
 
 export default function LoginScreen() {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+
+  const handleLogin = () => {
+    let isValid = true;
+    setEmailError('');
+    setPasswordError('');
+
+    if (!email || !email.includes('@')) {
+      setEmailError('Ingresa un correo electrónico válido');
+      isValid = false;
+    }
+    if (!password) {
+      setPasswordError('La contraseña es requerida');
+      isValid = false;
+    }
+
+    if (isValid) {
+      // In a real app we'd validate against a backend
+      router.replace('/(tabs)');
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -29,6 +53,7 @@ export default function LoginScreen() {
               autoCapitalize="none"
               value={email}
               onChangeText={setEmail}
+              error={emailError}
             />
 
             <Input
@@ -40,6 +65,7 @@ export default function LoginScreen() {
               onRightIconPress={() => setShowPassword(!showPassword)}
               value={password}
               onChangeText={setPassword}
+              error={passwordError}
             />
 
             <View style={styles.optionsRow}>
@@ -59,7 +85,7 @@ export default function LoginScreen() {
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity style={styles.loginButton} activeOpacity={0.9}>
+            <TouchableOpacity style={styles.loginButton} activeOpacity={0.9} onPress={handleLogin}>
               <Text style={styles.loginButtonText}>Iniciar sesión</Text>
               <MaterialIcons name="arrow-forward" size={20} color={Theme.colors.onPrimary} />
             </TouchableOpacity>

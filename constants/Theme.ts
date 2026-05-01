@@ -11,6 +11,7 @@ export const Theme = {
     onSurface: '#1b1c1c', // Primary Text
     onSurfaceVariant: '#544438', // Secondary Text
     outline: '#e0e0e0', // Borders
+    placeholder: '#9e9e9e', // Placeholder Text
     divider: '#f2f2f2', // List Dividers
     error: '#ba1a1a',
     onError: '#ffffff',
