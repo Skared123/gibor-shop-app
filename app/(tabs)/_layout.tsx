@@ -8,11 +8,14 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { useClientOnlyValue } from '@/components/useClientOnlyValue';
 
 // You can explore the built-in icon families and icons on the web at https://icons.expo.fyi/
+import { MaterialIcons } from '@expo/vector-icons';
+import { Theme } from '@/constants/Theme';
+
 function TabBarIcon(props: {
-  name: React.ComponentProps<typeof FontAwesome>['name'];
+  name: keyof typeof MaterialIcons.glyphMap;
   color: string;
 }) {
-  return <FontAwesome size={28} style={{ marginBottom: -3 }} {...props} />;
+  return <MaterialIcons size={24} style={{ marginBottom: -3 }} {...props} />;
 }
 
 export default function TabLayout() {
@@ -21,37 +24,48 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        // Disable the static render of the header on web
-        // to prevent a hydration error in React Navigation v6.
-        headerShown: useClientOnlyValue(false, true),
+        tabBarActiveTintColor: Theme.colors.primary,
+        tabBarInactiveTintColor: '#9e9e9e',
+        headerShown: false,
+        tabBarStyle: {
+          height: 80,
+          paddingBottom: 20,
+          paddingTop: 10,
+        }
       }}>
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Tab One',
-          tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
-          headerRight: () => (
-            <Link href="/modal" asChild>
-              <Pressable>
-                {({ pressed }) => (
-                  <FontAwesome
-                    name="info-circle"
-                    size={25}
-                    color={Colors[colorScheme ?? 'light'].text}
-                    style={{ marginRight: 15, opacity: pressed ? 0.5 : 1 }}
-                  />
-                )}
-              </Pressable>
-            </Link>
-          ),
+          title: 'Dashboard',
+          tabBarIcon: ({ color }) => <TabBarIcon name="dashboard" color={color} />,
         }}
       />
       <Tabs.Screen
-        name="two"
+        name="products"
         options={{
-          title: 'Tab Two',
-          tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
+          title: 'Products',
+          tabBarIcon: ({ color }) => <TabBarIcon name="inventory" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="stores"
+        options={{
+          title: 'Shops',
+          tabBarIcon: ({ color }) => <TabBarIcon name="storefront" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="orders"
+        options={{
+          title: 'Orders',
+          tabBarIcon: ({ color }) => <TabBarIcon name="pending-actions" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="more"
+        options={{
+          title: 'More',
+          tabBarIcon: ({ color }) => <TabBarIcon name="more-horiz" color={color} />,
         }}
       />
     </Tabs>

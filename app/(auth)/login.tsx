@@ -38,7 +38,7 @@ export default function LoginScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
-        <Card style={styles.card}>
+        <Card style={styles.card} elevationLevel={2}>
           <View style={styles.header}>
             <Text style={styles.title}>GIBOR SHOP</Text>
             <Text style={styles.subtitle}>Bienvenido de nuevo</Text>

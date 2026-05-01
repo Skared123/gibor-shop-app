@@ -103,17 +103,17 @@ export const Theme = {
   elevation: {
     level1: {
       shadowColor: '#000000',
-      shadowOffset: { width: 0, height: 2 },
+      shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.1,
-      shadowRadius: 4,
+      shadowRadius: 10,
       elevation: 2,
     },
     level2: {
       shadowColor: '#000000',
-      shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: 0.15,
-      shadowRadius: 12,
-      elevation: 6,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.2,
+      shadowRadius: 20,
+      elevation: 5,
     },
   },
 };

@@ -5,11 +5,14 @@ import { Theme } from '@/constants/Theme';
 interface CardProps extends ViewProps {
   title?: string;
   rightAction?: React.ReactNode;
+  elevationLevel?: 1 | 2;
 }
 
-export function Card({ title, rightAction, style, children, ...props }: CardProps) {
+export function Card({ title, rightAction, elevationLevel = 1, style, children, ...props }: CardProps) {
+  const elevationStyle = elevationLevel === 2 ? Theme.elevation.level2 : Theme.elevation.level1;
+
   return (
-    <View style={[styles.card, style]} {...props}>
+    <View style={[styles.card, elevationStyle, style]} {...props}>
       {(title || rightAction) && (
         <View style={styles.header}>
           {title ? <Text style={styles.title}>{title}</Text> : <View />}
@@ -27,9 +30,7 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: Theme.colors.surface,
     borderRadius: Theme.rounded.lg,
-    ...Theme.elevation.level1,
     marginVertical: Theme.spacing.sm,
-    overflow: 'hidden',
   },
   header: {
     flexDirection: 'row',
