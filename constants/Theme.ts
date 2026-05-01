@@ -6,6 +6,14 @@ export const Theme = {
     onSecondary: '#ffffff',
     success: '#27ae60', // Success Green
     onSuccess: '#ffffff',
+    tertiary: '#006d37', // Tertiary Green
+    onTertiary: '#ffffff',
+    primaryContainer: '#f2994a',
+    onPrimaryContainer: '#663500',
+    secondaryContainer: '#448ffd',
+    onSecondaryContainer: '#002959',
+    tertiaryContainer: '#44c473',
+    onTertiaryContainer: '#004c24',
     background: '#f8f9fa', // Neutral Background
     surface: '#ffffff', // Cards and Containers
     onSurface: '#1b1c1c', // Primary Text
