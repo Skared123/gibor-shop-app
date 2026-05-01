@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
-import { View, TextInput, Text, StyleSheet, TextInputProps, ViewStyle } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { View, TextInput, Text, StyleSheet, TextInputProps, ViewStyle, TouchableOpacity } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 import { Theme } from '@/constants/Theme';
 
 interface InputProps extends TextInputProps {
   label?: string;
   error?: string;
-  iconName?: keyof typeof Ionicons.glyphMap;
+  iconName?: keyof typeof MaterialIcons.glyphMap;
+  rightIconName?: keyof typeof MaterialIcons.glyphMap;
+  onRightIconPress?: () => void;
   containerStyle?: ViewStyle;
 }
 
-export function Input({ label, error, iconName, containerStyle, style, ...props }: InputProps) {
+export function Input({ label, error, iconName, rightIconName, onRightIconPress, containerStyle, style, ...props }: InputProps) {
   const [isFocused, setIsFocused] = useState(false);
 
   return (
@@ -22,7 +24,7 @@ export function Input({ label, error, iconName, containerStyle, style, ...props 
         error && styles.inputError,
       ]}>
         {iconName && (
-          <Ionicons name={iconName} size={20} color={Theme.colors.onSurfaceVariant} style={styles.icon} />
+          <MaterialIcons name={iconName} size={20} color={Theme.colors.onSurfaceVariant} style={styles.icon} />
         )}
         <TextInput
           style={[styles.input, style]}
@@ -37,6 +39,11 @@ export function Input({ label, error, iconName, containerStyle, style, ...props 
           }}
           {...props}
         />
+        {rightIconName && (
+          <TouchableOpacity onPress={onRightIconPress} activeOpacity={0.7} style={styles.rightIcon}>
+            <MaterialIcons name={rightIconName} size={20} color={Theme.colors.onSurfaceVariant} />
+          </TouchableOpacity>
+        )}
       </View>
       {error && <Text style={styles.errorText}>{error}</Text>}
     </View>
@@ -64,6 +71,9 @@ const styles = StyleSheet.create({
   },
   icon: {
     marginRight: Theme.spacing.sm,
+  },
+  rightIcon: {
+    marginLeft: Theme.spacing.sm,
   },
   input: {
     flex: 1,
