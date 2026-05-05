@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { Theme } from '@/constants/Theme';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
+import { useAppData } from '@/context/AppDataContext';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -15,6 +16,7 @@ export default function LoginScreen() {
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
 
+  const { login } = useAppData();
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async () => {
@@ -55,7 +57,8 @@ export default function LoginScreen() {
         return;
       }
 
-      // On successful login, redirect
+      // On successful login, save data and redirect
+      await login(data);
       router.replace('/(tabs)');
     } catch (error) {
       console.error(error);
