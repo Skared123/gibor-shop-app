@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, ActivityIndicator } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Theme } from '@/constants/Theme';
@@ -15,23 +15,53 @@ export default function LoginScreen() {
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
 
-  const handleLogin = () => {
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleLogin = async () => {
     let isValid = true;
     setEmailError('');
     setPasswordError('');
 
-    if (!email || !email.includes('@')) {
-      setEmailError('Ingresa un correo electrónico válido');
+    if (!email.trim()) {
+      setEmailError('El correo electrónico es requerido');
+      isValid = false;
+    } else if (!/^[^ @]+@[^ @]+[.][^ @]+$/.test(email.trim())) {
+      setEmailError('Formato de correo electrónico inválido');
       isValid = false;
     }
+
     if (!password) {
       setPasswordError('La contraseña es requerida');
       isValid = false;
     }
 
-    if (isValid) {
-      // In a real app we'd validate against a backend
+    if (!isValid) return;
+
+    try {
+      setIsLoading(true);
+      // Usamos el endpoint nativo de Payload CMS para administradores/dueños de tienda
+      const res = await fetch('https://shop.giborcommunity.com/api/users/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+
+      const data = await res.json().catch(() => ({}));
+      
+      if (!res.ok) {
+        // Handle payload error format from native /api/users/login
+        const errorMsg = data?.errors?.[0]?.message || data?.message || data?.error || `Error ${res.status}`;
+        setEmailError(errorMsg);
+        return;
+      }
+
+      // On successful login, redirect
       router.replace('/(tabs)');
+    } catch (error) {
+      console.error(error);
+      setEmailError('Error de conexión. Intenta de nuevo.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -52,7 +82,10 @@ export default function LoginScreen() {
               keyboardType="email-address"
               autoCapitalize="none"
               value={email}
-              onChangeText={setEmail}
+              onChangeText={(text) => {
+                setEmail(text);
+                if (emailError) setEmailError('');
+              }}
               error={emailError}
             />
 
@@ -64,7 +97,10 @@ export default function LoginScreen() {
               rightIconName={showPassword ? 'visibility' : 'visibility-off'}
               onRightIconPress={() => setShowPassword(!showPassword)}
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(text) => {
+                setPassword(text);
+                if (passwordError) setPasswordError('');
+              }}
               error={passwordError}
             />
 
@@ -85,9 +121,15 @@ export default function LoginScreen() {
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity style={styles.loginButton} activeOpacity={0.9} onPress={handleLogin}>
-              <Text style={styles.loginButtonText}>Iniciar sesión</Text>
-              <MaterialIcons name="arrow-forward" size={20} color={Theme.colors.onPrimary} />
+            <TouchableOpacity style={styles.loginButton} activeOpacity={0.9} onPress={handleLogin} disabled={isLoading}>
+              {isLoading ? (
+                <ActivityIndicator color={Theme.colors.onPrimary} />
+              ) : (
+                <>
+                  <Text style={styles.loginButtonText}>Iniciar sesión</Text>
+                  <MaterialIcons name="arrow-forward" size={20} color={Theme.colors.onPrimary} />
+                </>
+              )}
             </TouchableOpacity>
           </View>
 
