@@ -1,9 +1,13 @@
 import React from 'react';
-import { StyleSheet, ScrollView, View, Text, TouchableOpacity, TextInput, Image, FlatList } from 'react-native';
+import { StyleSheet, ScrollView, View, Text, TouchableOpacity, TextInput, Image, FlatList, ActivityIndicator, Modal } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Theme } from '@/constants/Theme';
+import { useAppData } from '@/context/AppDataContext';
+import { SvgUri } from 'react-native-svg';
+import { useFocusEffect } from '@react-navigation/native';
+import dayjs from 'dayjs';
 
 const PRODUCTS = [
   {
@@ -41,6 +45,68 @@ const PRODUCTS = [
 export default function ProductsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { preferredCountry, setPreferredCountry, api, isLoading: isContextLoading, favorites, toggleFavorite, setSelectedProduct, setCatalogProducts } = useAppData();
+
+  const [products, setProductsState] = React.useState<any[]>([]);
+  const setProducts = (newProducts: any[]) => {
+    setProductsState(newProducts);
+    setCatalogProducts(newProducts);
+  };
+  const [countries, setCountries] = React.useState<any[]>([]);
+  const [categories, setCategories] = React.useState<any[]>([]);
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [isInitialLoading, setIsInitialLoading] = React.useState(true);
+  const [showWelcomeModal, setShowWelcomeModal] = React.useState(false);
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const [selectedCountry, setSelectedCountry] = React.useState<any>(null);
+  const [limit, setLimit] = React.useState(24);
+  const [showLimitModal, setShowLimitModal] = React.useState(false);
+
+  const fetchFilters = async () => {
+    try {
+      const res = await api.get('/products/catalog-filters');
+      setCountries(res.data.filters.countries);
+      setCategories(res.data.filters.categories);
+    } catch (error) {
+      console.error('Error fetching filters:', error);
+    }
+  };
+
+  const fetchProducts = async (countryIdOverride?: number) => {
+    const countryId = countryIdOverride || selectedCountry?.id || preferredCountry?.id;
+    if (!countryId) return;
+    
+    setIsLoading(true);
+    try {
+      const res = await api.get(`/products/catalog-filters?country=${countryId}&search=${searchQuery}&limit=${limit}`);
+      setProducts(res.data.products.docs);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+    } finally {
+      setIsLoading(false);
+      setIsInitialLoading(false);
+    }
+  };
+
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchFilters();
+      setShowWelcomeModal(true);
+    }, [])
+  );
+
+  React.useEffect(() => {
+    if (selectedCountry || preferredCountry) {
+      fetchProducts();
+    }
+  }, [selectedCountry, searchQuery, limit]);
+
+  const handleSelectInitialCountry = (country: any) => {
+    setPreferredCountry(country);
+    setSelectedCountry(country);
+    setShowWelcomeModal(false);
+    fetchProducts(country.id);
+  };
 
   return (
     <View style={styles.flex}>
@@ -65,33 +131,153 @@ export default function ProductsScreen() {
               style={styles.searchInput} 
               placeholder="Buscar productos..." 
               placeholderTextColor={Theme.colors.placeholder}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
             />
           </View>
 
           {/* Horizontal Filters */}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filtersScroll} contentContainerStyle={styles.filtersContent}>
-            <FilterPill icon="grid-view" label="Mexico" />
+            <FilterPill 
+              icon={selectedCountry?.iso2 ? (
+                <SvgUri
+                  uri={`https://purecatamphetamine.github.io/country-flag-icons/3x2/${selectedCountry.iso2.toUpperCase()}.svg`}
+                  width={20}
+                  height={14}
+                />
+              ) : "public"} 
+              label={selectedCountry?.name || 'País'} 
+              onPress={() => setShowWelcomeModal(true)}
+            />
+            <FilterPill 
+              icon="filter-list" 
+              label={`${limit} / pág`} 
+              onPress={() => setShowLimitModal(true)}
+            />
             <FilterPill icon="swap-vert" label="Título (A-Z)" />
-            <FilterPill icon="filter-list" label="24 / pág" />
           </ScrollView>
         </View>
 
         {/* Product List */}
         <View style={styles.productGrid}>
-          {PRODUCTS.map((product) => (
-            <ProductCard key={product.id} product={product} onAction={() => router.push('/order-creation')} />
+          {isLoading && <ActivityIndicator size="large" color={Theme.colors.primary} style={{ marginVertical: 20 }} />}
+          {products.map((product) => (
+            <ProductCard 
+              key={product.id} 
+              product={{
+                ...product,
+                priceProvider: `$${(product.price || 0).toLocaleString()}`,
+                priceSuggested: product.suggested_price ? `$${product.suggested_price.toLocaleString()}` : '-',
+                image: product.images?.[0] 
+                  ? `https://shop.giborcommunity.com/api/media-url/${typeof product.images[0] === 'object' ? product.images[0].id : product.images[0]}` 
+                  : null,
+              }} 
+              isFavorite={favorites.includes(product.id.toString())}
+              onToggleFavorite={() => toggleFavorite(product.id.toString())}
+              onAction={() => {
+                setSelectedProduct(product);
+                router.push('/order-creation');
+              }} 
+            />
           ))}
+          {products.length === 0 && !isLoading && (
+            <View style={styles.emptyState}>
+              <MaterialIcons name="search-off" size={48} color={Theme.colors.outline} />
+              <Text style={styles.emptyStateText}>No se encontraron productos para este país</Text>
+            </View>
+          )}
         </View>
       </ScrollView>
+
+      {/* Welcome & Country Selection Modal */}
+      <Modal
+        visible={showWelcomeModal}
+        animationType="fade"
+        transparent={true}
+      >
+        <View style={styles.modalOverlayCentered}>
+          <View style={styles.welcomeContainer}>
+            <View style={styles.welcomeHeader}>
+              <MaterialIcons name="explore" size={48} color={Theme.colors.primary} />
+              <Text style={styles.welcomeTitle}>¡Bienvenido al Catálogo!</Text>
+              <Text style={styles.welcomeSubtitle}>Para comenzar, por favor selecciona tu país de preferencia para filtrar los productos.</Text>
+            </View>
+            
+            <View style={styles.countryList}>
+              <FlatList
+                data={countries}
+                keyExtractor={(item) => item.id.toString()}
+                renderItem={({ item }) => (
+                  <TouchableOpacity 
+                    style={styles.countryOption}
+                    onPress={() => handleSelectInitialCountry(item)}
+                  >
+                    <SvgUri
+                      uri={`https://purecatamphetamine.github.io/country-flag-icons/3x2/${item.iso2.toUpperCase()}.svg`}
+                      width={28}
+                      height={20}
+                    />
+                    <Text style={styles.countryOptionText}>{item.name}</Text>
+                    <MaterialIcons name="chevron-right" size={20} color={Theme.colors.outline} />
+                  </TouchableOpacity>
+                )}
+                ListEmptyComponent={<ActivityIndicator size="small" color={Theme.colors.primary} />}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Pagination Limit Modal */}
+      <Modal
+        visible={showLimitModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowLimitModal(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay} 
+          activeOpacity={1} 
+          onPress={() => setShowLimitModal(false)}
+        >
+          <View style={styles.bottomSheet}>
+            <View style={styles.bottomSheetHeader}>
+              <View style={styles.bottomSheetHandle} />
+              <Text style={styles.bottomSheetTitle}>Productos por página</Text>
+            </View>
+            <View style={styles.bottomSheetContent}>
+              {[8, 12, 24, 48].map((val) => (
+                <TouchableOpacity 
+                  key={val} 
+                  style={[styles.bottomSheetOption, limit === val && styles.bottomSheetOptionActive]}
+                  onPress={() => {
+                    setLimit(val);
+                    setShowLimitModal(false);
+                  }}
+                >
+                  <Text style={[styles.bottomSheetOptionText, limit === val && styles.bottomSheetOptionTextActive]}>
+                    {val} productos por página
+                  </Text>
+                  {limit === val && <MaterialIcons name="check" size={20} color={Theme.colors.primary} />}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
 
-function FilterPill({ icon, label }: { icon: any, label: string }) {
+function FilterPill({ icon, label, onPress }: { icon: any, label: string, onPress?: () => void }) {
   return (
-    <TouchableOpacity style={styles.filterPill}>
+    <TouchableOpacity style={styles.filterPill} onPress={onPress} activeOpacity={0.7}>
       <View style={styles.filterPillContent}>
-        <MaterialIcons name={icon} size={16} color={Theme.colors.onSurfaceVariant} />
+        {typeof icon === 'string' ? (
+          <MaterialIcons name={icon as any} size={16} color={Theme.colors.onSurfaceVariant} />
+        ) : (
+          icon
+        )}
         <Text style={styles.filterLabel}>{label}</Text>
       </View>
       <MaterialIcons name="expand-more" size={16} color={Theme.colors.onSurfaceVariant} />
@@ -99,21 +285,29 @@ function FilterPill({ icon, label }: { icon: any, label: string }) {
   );
 }
 
-function ProductCard({ product, onAction }: { product: any, onAction: () => void }) {
+function ProductCard({ product, isFavorite, onToggleFavorite, onAction }: { product: any, isFavorite: boolean, onToggleFavorite: () => void, onAction: () => void }) {
   const isOutOfStock = product.status === 'out_of_stock';
 
   return (
     <View style={[styles.card, isOutOfStock && styles.cardOutOfStock]}>
       <View style={styles.imageContainer}>
         <Image source={{ uri: product.image }} style={[styles.productImage, isOutOfStock && styles.imageGrayscale]} />
-        <TouchableOpacity style={styles.favoriteButton}>
-          <MaterialIcons name="favorite-border" size={20} color={Theme.colors.onSurface} />
+        <TouchableOpacity 
+          style={styles.favoriteButton} 
+          onPress={onToggleFavorite}
+          activeOpacity={0.7}
+        >
+          <MaterialIcons 
+            name={isFavorite ? "favorite" : "favorite-border"} 
+            size={20} 
+            color={isFavorite ? "#e91e63" : Theme.colors.onSurface} 
+          />
         </TouchableOpacity>
       </View>
 
       <View style={styles.cardContent}>
         <View style={styles.cardHeaderRow}>
-          <Text style={styles.categoryText}>{product.category}</Text>
+          <Text style={styles.categoryText}>{product.category?.title || 'Sin categoría'}</Text>
           <Text style={[styles.stockText, isOutOfStock ? styles.stockError : styles.stockSuccess]}>
             Stock: {product.stock}
           </Text>
@@ -345,5 +539,114 @@ const styles = StyleSheet.create({
   } as const,
   buttonDisabledText: {
     color: Theme.colors.outline,
-  } as const,
+  },
+  modalOverlayCentered: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  welcomeContainer: {
+    backgroundColor: '#ffffff',
+    borderRadius: 24,
+    width: '100%',
+    maxHeight: '80%',
+    padding: 24,
+    ...Theme.elevation.level2,
+  },
+  welcomeHeader: {
+    alignItems: 'center',
+    marginBottom: 24,
+    gap: 8,
+  },
+  welcomeTitle: {
+    ...Theme.typography.headlineMd,
+    color: Theme.colors.onSurface,
+    textAlign: 'center',
+  },
+  welcomeSubtitle: {
+    ...Theme.typography.bodyMd,
+    color: Theme.colors.onSurfaceVariant,
+    textAlign: 'center',
+  },
+  countryList: {
+    borderTopWidth: 1,
+    borderTopColor: '#f2f2f2',
+    paddingTop: 8,
+  },
+  countryOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f2f2f2',
+    gap: 12,
+  },
+  countryOptionText: {
+    flex: 1,
+    ...Theme.typography.bodyLg,
+    color: Theme.colors.onSurface,
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    gap: 12,
+  },
+  emptyStateText: {
+    ...Theme.typography.bodyMd,
+    color: Theme.colors.onSurfaceVariant,
+    textAlign: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  bottomSheet: {
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingBottom: 40,
+  },
+  bottomSheetHeader: {
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  bottomSheetHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 2,
+    marginBottom: 8,
+  },
+  bottomSheetTitle: {
+    ...Theme.typography.headlineSm,
+    color: Theme.colors.onSurface,
+  },
+  bottomSheetContent: {
+    paddingHorizontal: 16,
+  },
+  bottomSheetOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f2f2f2',
+  },
+  bottomSheetOptionActive: {
+    backgroundColor: '#f6f3f2',
+    borderRadius: 8,
+  },
+  bottomSheetOptionText: {
+    ...Theme.typography.bodyLg,
+    color: Theme.colors.onSurface,
+  },
+  bottomSheetOptionTextActive: {
+    color: Theme.colors.primary,
+    fontWeight: '700',
+  },
 });

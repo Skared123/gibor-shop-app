@@ -2,6 +2,13 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Define basic types based on Payload CMS response
+export interface Country {
+  id: number;
+  name: string;
+  iso2: string;
+  phone_code?: string;
+}
+
 export interface Store {
   id: number;
   name: string;
@@ -18,18 +25,27 @@ export interface User {
 
 import axios, { AxiosInstance } from 'axios';
 
-const BASE_URL = 'https://shop.giborcommunity.com/api';
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://shop.giborcommunity.com/api';
 
 interface AppDataContextType {
   user: User | null;
   token: string | null;
   stores: Store[];
+  countries: Country[];
   selectedStore: Store | null;
+  preferredCountry: any | null;
+  selectedProduct: any | null;
+  setSelectedProduct: (product: any) => void;
+  catalogProducts: any[];
+  setCatalogProducts: (products: any[]) => void;
+  favorites: string[];
+  toggleFavorite: (productId: string) => void;
   isLoading: boolean;
   api: AxiosInstance;
   login: (userData: any) => Promise<void>;
   logout: () => Promise<void>;
   setSelectedStore: (store: Store) => void;
+  setPreferredCountry: (country: any) => void;
   refreshStores: () => Promise<void>;
 }
 
@@ -39,7 +55,12 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [stores, setStores] = useState<Store[]>([]);
+  const [countries, setCountries] = useState<Country[]>([]);
   const [selectedStore, setSelectedStoreState] = useState<Store | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
+  const [catalogProducts, setCatalogProducts] = useState<any[]>([]);
+  const [preferredCountry, setPreferredCountryState] = useState<any | null>(null);
+  const [favorites, setFavorites] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const api = axios.create({
@@ -58,11 +79,15 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
         const storedToken = await AsyncStorage.getItem('token');
         const storedStores = await AsyncStorage.getItem('stores');
         const storedSelectedStore = await AsyncStorage.getItem('selectedStore');
+        const storedCountry = await AsyncStorage.getItem('preferredCountry');
+        const storedFavorites = await AsyncStorage.getItem('favoriteProducts');
 
         if (storedUser) setUser(JSON.parse(storedUser));
         if (storedToken) setToken(storedToken);
         if (storedStores) setStores(JSON.parse(storedStores));
         if (storedSelectedStore) setSelectedStoreState(JSON.parse(storedSelectedStore));
+        if (storedCountry) setPreferredCountryState(JSON.parse(storedCountry));
+        if (storedFavorites) setFavorites(JSON.parse(storedFavorites));
       } catch (error) {
         console.error('Error initializing app data:', error);
       } finally {
@@ -71,7 +96,19 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
 
     initAppData();
+    fetchInitialCountries();
   }, []);
+
+  const fetchInitialCountries = async () => {
+    try {
+      const response = await axios.get(`${BASE_URL}/products/catalog-filters`);
+      if (response.data.filters?.countries) {
+        setCountries(response.data.filters.countries);
+      }
+    } catch (error) {
+      console.error('Error fetching initial countries:', error);
+    }
+  };
 
   const login = async (userData: any) => {
     const userObj = {
@@ -87,7 +124,6 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     await AsyncStorage.setItem('user', JSON.stringify(userObj));
     await AsyncStorage.setItem('token', userToken);
     
-    // We need to wait for state update or use local variables
     try {
       const response = await axios.get(`${BASE_URL}/stores?where[owner][equals]=${userObj.id}&limit=100`, {
         headers: { Authorization: `JWT ${userToken}` }
@@ -112,10 +148,12 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setToken(null);
     setStores([]);
     setSelectedStoreState(null);
+    setPreferredCountryState(null);
     await AsyncStorage.removeItem('user');
     await AsyncStorage.removeItem('token');
     await AsyncStorage.removeItem('stores');
     await AsyncStorage.removeItem('selectedStore');
+    await AsyncStorage.removeItem('preferredCountry');
   };
 
   const refreshStores = async () => {
@@ -138,9 +176,23 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
-  const setSelectedStore = (store: Store) => {
+  const setSelectedStore = async (store: Store) => {
     setSelectedStoreState(store);
-    AsyncStorage.setItem('selectedStore', JSON.stringify(store));
+    await AsyncStorage.setItem('selectedStore', JSON.stringify(store));
+  };
+
+  const setPreferredCountry = async (country: any) => {
+    setPreferredCountryState(country);
+    await AsyncStorage.setItem('preferredCountry', JSON.stringify(country));
+  };
+
+  const toggleFavorite = async (productId: string) => {
+    const newFavorites = favorites.includes(productId)
+      ? favorites.filter(id => id !== productId)
+      : [...favorites, productId];
+    
+    setFavorites(newFavorites);
+    await AsyncStorage.setItem('favoriteProducts', JSON.stringify(newFavorites));
   };
 
   return (
@@ -149,13 +201,22 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
         user,
         token,
         stores,
+        countries,
         selectedStore,
+        preferredCountry,
+        selectedProduct,
+        setSelectedProduct,
+        catalogProducts,
+        setCatalogProducts,
+        favorites,
         isLoading,
         api,
         login,
         logout,
         setSelectedStore,
+        setPreferredCountry,
         refreshStores,
+        toggleFavorite,
       }}
     >
       {children}

@@ -8,6 +8,23 @@ import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { AppDataProvider } from '@/context/AppDataContext';
+import { LogBox } from 'react-native';
+
+// Suppress VirtualizedList warning globally (LogBox)
+LogBox.ignoreLogs([
+  'VirtualizedLists should never be nested',
+  /VirtualizedLists should never be nested/,
+]);
+
+// In newer React Native versions, this is thrown as a hard console.error, bypassing LogBox.
+// We intercept it here to prevent the red screen of death in development.
+const originalConsoleError = console.error;
+console.error = (...args) => {
+  if (typeof args[0] === 'string' && args[0].includes('VirtualizedLists should never be nested')) {
+    return;
+  }
+  originalConsoleError(...args);
+};
 
 export {
   // Catch any errors thrown by the Layout component.
