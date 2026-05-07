@@ -61,6 +61,10 @@ export default function ProductsScreen() {
   const [selectedCountry, setSelectedCountry] = React.useState<any>(null);
   const [limit, setLimit] = React.useState(24);
   const [showLimitModal, setShowLimitModal] = React.useState(false);
+  const [page, setPage] = React.useState(1);
+  const [hasNextPage, setHasNextPage] = React.useState(false);
+  const [isFetchingNextPage, setIsFetchingNextPage] = React.useState(false);
+  const [isRefreshing, setIsRefreshing] = React.useState(false);
 
   const fetchFilters = async () => {
     try {
@@ -72,20 +76,59 @@ export default function ProductsScreen() {
     }
   };
 
-  const fetchProducts = async (countryIdOverride?: number) => {
+  const fetchProducts = async (pageToFetch: number = 1, countryIdOverride?: number) => {
     const countryId = countryIdOverride || selectedCountry?.id || preferredCountry?.id;
     if (!countryId) return;
     
-    setIsLoading(true);
+    if (pageToFetch === 1) {
+      setIsLoading(true);
+    } else {
+      setIsFetchingNextPage(true);
+    }
+
     try {
-      const res = await api.get(`/products/catalog-filters?country=${countryId}&search=${searchQuery}&limit=${limit}`);
-      setProducts(res.data.products.docs);
+      const res = await api.get(`/products/catalog-filters?country=${countryId}&search=${searchQuery}&limit=${limit}&page=${pageToFetch}`);
+      const productsData = res.data.products;
+      
+      if (!productsData) {
+        console.warn('No products data received');
+        return;
+      }
+
+      const newDocs = productsData.docs || [];
+      
+      if (pageToFetch === 1) {
+        setProducts(newDocs);
+      } else {
+        setProductsState(prev => {
+          const updated = [...prev, ...newDocs];
+          // Sincronizar con el contexto global
+          setCatalogProducts(updated);
+          return updated;
+        });
+      }
+      
+      setHasNextPage(!!productsData.hasNextPage);
+      setPage(productsData.page || pageToFetch);
     } catch (error) {
       console.error('Error fetching products:', error);
     } finally {
       setIsLoading(false);
       setIsInitialLoading(false);
+      setIsFetchingNextPage(false);
+      setIsRefreshing(false);
     }
+  };
+
+  const handleLoadMore = () => {
+    if (!isLoading && !isFetchingNextPage && hasNextPage) {
+      fetchProducts(page + 1);
+    }
+  };
+
+  const onRefresh = () => {
+    setIsRefreshing(true);
+    fetchProducts(1);
   };
 
   useFocusEffect(
@@ -97,7 +140,7 @@ export default function ProductsScreen() {
 
   React.useEffect(() => {
     if (selectedCountry || preferredCountry) {
-      fetchProducts();
+      fetchProducts(1);
     }
   }, [selectedCountry, searchQuery, limit]);
 
@@ -106,6 +149,51 @@ export default function ProductsScreen() {
     setSelectedCountry(country);
     setShowWelcomeModal(false);
     fetchProducts(country.id);
+  };
+
+  const renderHeader = () => (
+    <View style={styles.headerSection}>
+      <Text style={styles.headline}>Catálogo de productos</Text>
+      <View style={styles.searchContainer}>
+        <MaterialIcons name="search" size={20} color={Theme.colors.placeholder} style={styles.searchIcon} />
+        <TextInput 
+          style={styles.searchInput} 
+          placeholder="Buscar productos..." 
+          placeholderTextColor={Theme.colors.placeholder}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+      </View>
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filtersScroll} contentContainerStyle={styles.filtersContent}>
+        <FilterPill 
+          icon={selectedCountry?.iso2 ? (
+            <SvgUri
+              uri={`https://purecatamphetamine.github.io/country-flag-icons/3x2/${selectedCountry.iso2.toUpperCase()}.svg`}
+              width={20}
+              height={14}
+            />
+          ) : "public"} 
+          label={selectedCountry?.name || 'País'} 
+          onPress={() => setShowWelcomeModal(true)}
+        />
+        <FilterPill 
+          icon="filter-list" 
+          label={`${limit} / pág`} 
+          onPress={() => setShowLimitModal(true)}
+        />
+        <FilterPill icon="swap-vert" label="Título (A-Z)" />
+      </ScrollView>
+    </View>
+  );
+
+  const renderFooter = () => {
+    if (!isFetchingNextPage) return null;
+    return (
+      <View style={styles.footerLoader}>
+        <ActivityIndicator size="small" color={Theme.colors.primary} />
+      </View>
+    );
   };
 
   return (
@@ -121,73 +209,49 @@ export default function ProductsScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Header & Search */}
-        <View style={styles.headerSection}>
-          <Text style={styles.headline}>Catálogo de productos</Text>
-          <View style={styles.searchContainer}>
-            <MaterialIcons name="search" size={20} color={Theme.colors.placeholder} style={styles.searchIcon} />
-            <TextInput 
-              style={styles.searchInput} 
-              placeholder="Buscar productos..." 
-              placeholderTextColor={Theme.colors.placeholder}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
+      <FlatList
+        data={products}
+        keyExtractor={(item) => item.id.toString()}
+        renderItem={({ item: product }) => (
+          <ProductCard 
+            key={product.id} 
+            product={{
+              ...product,
+              priceProvider: `$${(product.price || 0).toLocaleString()}`,
+              priceSuggested: product.suggested_price ? `$${product.suggested_price.toLocaleString()}` : '-',
+              image: product.images?.[0] 
+                ? `https://shop.giborcommunity.com/api/media-url/${typeof product.images[0] === 'object' ? product.images[0].id : product.images[0]}` 
+                : null,
+            }} 
+            isFavorite={favorites.includes(product.id.toString())}
+            onToggleFavorite={() => toggleFavorite(product.id.toString())}
+            onAction={() => {
+              setSelectedProduct(product);
+              router.push('/order-creation');
+            }} 
+          />
+        )}
+        ListHeaderComponent={renderHeader}
+        ListFooterComponent={renderFooter}
+        ListEmptyComponent={!isLoading ? (
+          <View style={styles.emptyState}>
+            <MaterialIcons name="search-off" size={48} color={Theme.colors.outline} />
+            <Text style={styles.emptyStateText}>No se encontraron productos para este país</Text>
           </View>
+        ) : null}
+        contentContainerStyle={styles.scrollContent}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.1}
+        refreshing={isRefreshing}
+        onRefresh={onRefresh}
+        showsVerticalScrollIndicator={false}
+      />
 
-          {/* Horizontal Filters */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filtersScroll} contentContainerStyle={styles.filtersContent}>
-            <FilterPill 
-              icon={selectedCountry?.iso2 ? (
-                <SvgUri
-                  uri={`https://purecatamphetamine.github.io/country-flag-icons/3x2/${selectedCountry.iso2.toUpperCase()}.svg`}
-                  width={20}
-                  height={14}
-                />
-              ) : "public"} 
-              label={selectedCountry?.name || 'País'} 
-              onPress={() => setShowWelcomeModal(true)}
-            />
-            <FilterPill 
-              icon="filter-list" 
-              label={`${limit} / pág`} 
-              onPress={() => setShowLimitModal(true)}
-            />
-            <FilterPill icon="swap-vert" label="Título (A-Z)" />
-          </ScrollView>
+      {isLoading && page === 1 && (
+        <View style={styles.initialLoaderOverlay}>
+          <ActivityIndicator size="large" color={Theme.colors.primary} />
         </View>
-
-        {/* Product List */}
-        <View style={styles.productGrid}>
-          {isLoading && <ActivityIndicator size="large" color={Theme.colors.primary} style={{ marginVertical: 20 }} />}
-          {products.map((product) => (
-            <ProductCard 
-              key={product.id} 
-              product={{
-                ...product,
-                priceProvider: `$${(product.price || 0).toLocaleString()}`,
-                priceSuggested: product.suggested_price ? `$${product.suggested_price.toLocaleString()}` : '-',
-                image: product.images?.[0] 
-                  ? `https://shop.giborcommunity.com/api/media-url/${typeof product.images[0] === 'object' ? product.images[0].id : product.images[0]}` 
-                  : null,
-              }} 
-              isFavorite={favorites.includes(product.id.toString())}
-              onToggleFavorite={() => toggleFavorite(product.id.toString())}
-              onAction={() => {
-                setSelectedProduct(product);
-                router.push('/order-creation');
-              }} 
-            />
-          ))}
-          {products.length === 0 && !isLoading && (
-            <View style={styles.emptyState}>
-              <MaterialIcons name="search-off" size={48} color={Theme.colors.outline} />
-              <Text style={styles.emptyStateText}>No se encontraron productos para este país</Text>
-            </View>
-          )}
-        </View>
-      </ScrollView>
+      )}
 
       {/* Welcome & Country Selection Modal */}
       <Modal
@@ -598,6 +662,17 @@ const styles = StyleSheet.create({
     ...Theme.typography.bodyMd,
     color: Theme.colors.onSurfaceVariant,
     textAlign: 'center',
+  },
+  footerLoader: {
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  initialLoaderOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
   },
   modalOverlay: {
     flex: 1,
