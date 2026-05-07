@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, ScrollView, View, Text, TouchableOpacity, TextInput, SafeAreaView, Switch, Image, Alert } from 'react-native';
+import { StyleSheet, ScrollView, View, Text, TouchableOpacity, TextInput, SafeAreaView, Switch, Image, Alert, ActivityIndicator } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,6 +11,7 @@ import { COUNTRIES } from '@/constants/Countries';
 import { GoogleAddressSearch, AddressResult } from '@/components/ui/GoogleAddressSearch';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
+import axios from 'axios';
 
 const normalizeLocationString = (str: string): string => {
   if (!str) return '';
@@ -69,8 +70,9 @@ export default function OrderCreationScreen() {
   const [showVoucherModal, setShowVoucherModal] = useState(false);
   const [dynamicShippingCost, setDynamicShippingCost] = useState(0);
 
-  const { stores, selectedStore, setSelectedStore, preferredCountry, selectedProduct, catalogProducts } = useAppData();
+  const { stores, selectedStore, setSelectedStore, preferredCountry, selectedProduct, catalogProducts, user, api } = useAppData();
   const [selectedPhoneCountry, setSelectedPhoneCountry] = useState<any>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Sincronizar país del teléfono con el país seleccionado en el catálogo (filtro anterior)
   // o con el país de la tienda seleccionada (comportamiento web)
@@ -318,6 +320,154 @@ export default function OrderCreationScreen() {
       }
 
       setVoucherFile({ uri, name: asset.name, type: 'document' });
+    }
+  };
+
+  const uploadVoucher = async (): Promise<number | null> => {
+    if (!voucherFile) return null;
+
+    try {
+      const formData = new FormData();
+      
+      // En React Native, FormData.append requiere un objeto con uri, name y type para archivos
+      const fileToUpload = {
+        uri: voucherFile.uri,
+        name: voucherFile.name,
+        type: voucherFile.type === 'image' ? 'image/jpeg' : 'application/pdf',
+      } as any;
+
+      formData.append('file', fileToUpload);
+
+      const response = await api.post('/media', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      return response.data.doc.id;
+    } catch (error) {
+      console.error('[UploadVoucher] Error:', error);
+      throw new Error('Error al subir el comprobante de pago.');
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (isSubmitting) return;
+
+    // Validaciones robustas de todos los campos mencionados
+    if (!selectedStore) {
+      Alert.alert('Error', 'Debes seleccionar una tienda.');
+      return;
+    }
+    if (!firstName.trim()) {
+      Alert.alert('Error', 'Debes ingresar el nombre del cliente.');
+      return;
+    }
+    if (!lastName.trim()) {
+      Alert.alert('Error', 'Debes ingresar el apellido del cliente.');
+      return;
+    }
+    if (!phoneNumber.trim() || phoneNumber.length < 7) {
+      Alert.alert('Error', 'Debes ingresar un número de teléfono válido.');
+      return;
+    }
+    if (!address.trim()) {
+      Alert.alert('Error', 'Debes ingresar la dirección de envío.');
+      return;
+    }
+    if (!department.trim()) {
+      Alert.alert('Error', 'Debes ingresar el departamento.');
+      return;
+    }
+    if (!district.trim()) {
+      Alert.alert('Error', 'Debes ingresar el distrito o ciudad.');
+      return;
+    }
+    if (!email.trim()) {
+      Alert.alert('Error', 'Debes ingresar un correo electrónico.');
+      return;
+    }
+    if (!isEmailValid) {
+      Alert.alert('Error', 'El correo electrónico ingresado no es válido.');
+      return;
+    }
+    if (selectedItems.length === 0) {
+      Alert.alert('Error', 'Debes agregar al menos un producto a la orden.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // 1. Subir voucher si existe
+      let voucherId = null;
+      if (voucherFile) {
+        voucherId = await uploadVoucher();
+      }
+
+      // 2. Construir payload de la orden siguiendo la estructura web
+      const orderPayload = {
+        store: selectedStore.id,
+        status: 'pending',
+        voucher: voucherId,
+        items: selectedItems.map(item => ({
+          product: item.product.id,
+          quantity: item.quantity,
+          price: parseFloat(item.price),
+          currency: preferredCountry?.currency || 'COP'
+        })),
+        address: {
+          recipientName: `${firstName} ${lastName}`,
+          phone: phoneNumber,
+          country: selectedPhoneCountry?.phone_prefix || '57',
+          state: department,
+          city: district,
+          zip: zip || '000000',
+          street: address
+        },
+        anonymousUser: {
+          name: `${firstName} ${lastName}`,
+          email: email || '',
+          phone: phoneNumber
+        },
+        pricing: {
+          shipping: dynamicShippingCost
+        }
+      };
+
+      // 3. Crear orden
+      const orderResponse = await api.post('/orders', orderPayload);
+      const createdOrder = orderResponse.data.doc;
+
+      // 4. Si hay notas, enviarlas al chat
+      if (hasNotes && notes.trim()) {
+        try {
+          const chatPayload = {
+            senderId: user?.id.toString() || '0',
+            role: 'user',
+            text: notes,
+            name: `${firstName} ${lastName}`,
+            ownerId: user?.id.toString() || '0',
+            countryId: createdOrder.country?.toString() || '2' // Fallback a 2 si no viene
+          };
+          
+          await axios.post(`https://gibor-chat.magnate-dev.xyz/chat/${createdOrder.id}/messages`, chatPayload);
+        } catch (chatErr) {
+          console.error('[ChatNote] Error sending note to chat:', chatErr);
+          // No bloqueamos el éxito de la orden si falla el chat
+        }
+      }
+
+      Alert.alert(
+        'Éxito',
+        '¡Pedido creado exitosamente!',
+        [{ text: 'OK', onPress: () => router.replace('/(tabs)/orders') }]
+      );
+    } catch (error: any) {
+      console.error('[SubmitOrder] Error:', error);
+      const errorMsg = error.response?.data?.message || error.message || 'Error desconocido';
+      Alert.alert('Error', `No se pudo crear la orden: ${errorMsg}`);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -695,8 +845,16 @@ export default function OrderCreationScreen() {
         <TouchableOpacity style={styles.cancelButton} onPress={() => router.back()}>
           <Text style={styles.cancelButtonText}>Cancelar</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.submitButton}>
-          <Text style={styles.submitButtonText}>Crear orden</Text>
+        <TouchableOpacity 
+          style={[styles.submitButton, (isSubmitting || selectedItems.length === 0) && styles.submitButtonDisabled]} 
+          onPress={handleSubmit}
+          disabled={isSubmitting || selectedItems.length === 0}
+        >
+          {isSubmitting ? (
+            <ActivityIndicator color="#ffffff" />
+          ) : (
+            <Text style={styles.submitButtonText}>Crear orden</Text>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -1369,6 +1527,10 @@ const styles = StyleSheet.create({
   submitButtonText: {
     ...Theme.typography.labelLg,
     color: '#ffffff',
+  } as const,
+  submitButtonDisabled: {
+    backgroundColor: Theme.colors.outline,
+    shadowOpacity: 0.1,
   } as const,
   rowBetween: {
     flexDirection: 'row',
