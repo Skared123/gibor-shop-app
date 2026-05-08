@@ -51,6 +51,8 @@ interface AppDataContextType {
   openDrawer: () => void;
   closeDrawer: () => void;
   toggleDrawer: () => void;
+  pendingOrdersCount: number;
+  refreshPendingCount: () => Promise<void>;
 }
 
 const AppDataContext = createContext<AppDataContextType | undefined>(undefined);
@@ -67,10 +69,25 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [favorites, setFavorites] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
 
-  const openDrawer = () => setIsDrawerOpen(true);
+  const openDrawer = () => {
+    refreshPendingCount();
+    setIsDrawerOpen(true);
+  };
   const closeDrawer = () => setIsDrawerOpen(false);
   const toggleDrawer = () => setIsDrawerOpen(prev => !prev);
+
+  const refreshPendingCount = async () => {
+    if (!user) return;
+    try {
+      // Fetch only the totalDocs by setting limit=1
+      const response = await api.get(`/orders?where[status][equals]=pending&where[store.owner][equals]=${user.id}&limit=1`);
+      setPendingOrdersCount(response.data.totalDocs || 0);
+    } catch (error) {
+      console.error('Error fetching pending orders count:', error);
+    }
+  };
 
   const api = axios.create({
     baseURL: BASE_URL,
@@ -230,6 +247,8 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
         openDrawer,
         closeDrawer,
         toggleDrawer,
+        pendingOrdersCount,
+        refreshPendingCount,
       }}
     >
       {children}

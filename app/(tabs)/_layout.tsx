@@ -57,10 +57,17 @@ export default function TabLayout() {
           }}
         />
         <Tabs.Screen
+          name="pending-orders"
+          options={{
+            title: 'Pendientes',
+            tabBarIcon: ({ color }) => <TabBarIcon name="pending-actions" color={color} />,
+          }}
+        />
+        <Tabs.Screen
           name="orders"
           options={{
-            title: 'Orders',
-            tabBarIcon: ({ color }) => <TabBarIcon name="pending-actions" color={color} />,
+            title: 'Historial',
+            tabBarIcon: ({ color }) => <TabBarIcon name="history" color={color} />,
           }}
         />
         <Tabs.Screen
@@ -68,6 +75,14 @@ export default function TabLayout() {
           options={{
             title: 'Cupones',
             tabBarIcon: ({ color }) => <TabBarIcon name="local-offer" color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="my-products"
+          options={{
+            title: 'Mis Productos',
+            tabBarIcon: ({ color }) => <TabBarIcon name="category" color={color} />,
+            href: null,
           }}
         />
         <Tabs.Screen

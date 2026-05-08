@@ -20,7 +20,7 @@ export default function NavigationDrawer() {
   const { width: SCREEN_WIDTH } = useWindowDimensions();
   const DRAWER_WIDTH = SCREEN_WIDTH * 0.8;
 
-  const { isDrawerOpen, closeDrawer, user, logout } = useAppData();
+  const { isDrawerOpen, closeDrawer, user, logout, pendingOrdersCount } = useAppData();
   const [showModal, setShowModal] = React.useState(isDrawerOpen);
   const router = useRouter();
   const pathname = usePathname();
@@ -80,9 +80,10 @@ export default function NavigationDrawer() {
 
   const menuItems = [
     { label: 'Dashboard', icon: 'dashboard', path: '/' },
-    { label: 'Products', icon: 'inventory-2', path: '/products' },
+    { label: 'Catálogo Global', icon: 'inventory-2', path: '/products' },
+    { label: 'Mis Productos', icon: 'category', path: '/my-products' },
     { label: 'Shops', icon: 'storefront', path: '/stores' },
-    { label: 'Pedidos Pendientes', icon: 'pending-actions', path: '/orders', badge: 10 },
+    { label: 'Pedidos Pendientes', icon: 'pending-actions', path: '/pending-orders', badge: pendingOrdersCount },
     { label: 'Historial de Pedidos', icon: 'history', path: '/orders' },
     { label: 'Mis Cupones', icon: 'local-offer', path: '/coupons', isSpecial: true },
   ];
@@ -150,11 +151,11 @@ export default function NavigationDrawer() {
                           : Theme.colors.onSurfaceVariant
                       }
                     />
-                    {item.badge && (
+                    {item.badge ? (
                       <View style={styles.badge}>
                         <Text style={styles.badgeText}>{item.badge}</Text>
                       </View>
-                    )}
+                    ) : null}
                   </View>
                   <Text
                     style={[

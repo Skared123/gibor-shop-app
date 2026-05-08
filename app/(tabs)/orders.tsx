@@ -6,36 +6,11 @@ import { Theme } from '@/constants/Theme';
 import { useAppData } from '@/context/AppDataContext';
 import { useRouter } from 'expo-router';
 import TopAppBar from '@/components/TopAppBar';
+import { FilterDropdown, StoreSelectorModal } from '@/components/StoreFilter';
+import StatusFlow, { STATUS_MAP } from '@/components/StatusFlow';
 
-const STATUS_FILTERS = [
-  { label: 'Todos', key: '' },
-  { label: 'Pendiente', key: 'pending', color: Theme.colors.outline },
-  { label: 'Pagado', key: 'paid', color: Theme.colors.secondary },
-  { label: 'Recibido', key: 'received', color: Theme.colors.outline },
-  { label: 'Enviado', key: 'shipped', color: Theme.colors.outline },
-  { label: 'Por entregar', key: 'at_door', color: Theme.colors.outline },
-  { label: 'Entregado', key: 'delivered', color: Theme.colors.tertiary },
-  { label: 'Cancelado', key: 'cancelled', color: Theme.colors.error },
-];
-
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case 'pending': return Theme.colors.outline;
-    case 'paid': return Theme.colors.secondary;
-    case 'delivered': return Theme.colors.tertiary;
-    case 'cancelled': return Theme.colors.error;
-    default: return Theme.colors.outline;
-  }
-}
-
-const getStatusLabel = (status: string) => {
-  const map: Record<string, string> = {
-    pending: 'Pendiente', paid: 'Pagado', received: 'Recibido', shipped: 'Enviado',
-    at_door: 'Por entregar', delivery_attempt: 'Intento de entrega', incident: 'Incidencia',
-    pickup_office: 'Recoger en oficina', returned: 'Devolución', delivered: 'Entregado', cancelled: 'Cancelado'
-  }
-  return map[status] || status
-}
+const getStatusColor = (status: string) => STATUS_MAP[status]?.dot || Theme.colors.outline;
+const getStatusLabel = (status: string) => STATUS_MAP[status]?.label || status;
 
 const formatCurrency = (amount: number | string = 0, currency: string = 'PEN') => {
   const val = typeof amount === 'number' ? amount : parseFloat(amount || '0');
@@ -148,59 +123,17 @@ export default function OrdersScreen() {
           <View style={styles.headerTitleRow}>
             <Text style={styles.headline}>Pedidos</Text>
           </View>
-          {/* <TouchableOpacity 
-            style={styles.createButton}
-            onPress={() => router.push('/order-creation')}
-          >
-            <Text style={styles.createButtonText}>Crear Nuevo Pedido</Text>
-          </TouchableOpacity> */}
         </View>
 
         {/* Filters Section */}
         <View style={styles.filtersSection}>
-          {/* Status Chips */}
-          <View style={styles.flowLabelRow}>
-            <MaterialIcons name="sync-alt" size={16} color={Theme.colors.onSurfaceVariant} />
-            <Text style={styles.flowLabel}>FLUJO</Text>
-          </View>
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false} 
-            contentContainerStyle={styles.chipsContainer}
-            style={styles.chipsScroll}
-          >
-            {STATUS_FILTERS.map((filter) => {
-              const isActive = activeStatus === filter.key;
-              const isPaid = filter.key === 'paid';
-              const isCancelled = filter.key === 'cancelled';
-              
-              return (
-                <TouchableOpacity 
-                  key={filter.label}
-                  style={[
-                    styles.statusChip,
-                    isActive && styles.statusChipActive,
-                    isActive && isPaid && styles.statusChipSecondary,
-                    isActive && isCancelled && styles.statusChipError,
-                  ]}
-                  onPress={() => {
-                    setActiveStatus(filter.key);
-                    setPage(1);
-                  }}
-                >
-                  {filter.color && <View style={[styles.dot, { backgroundColor: filter.color }]} />}
-                  <Text style={[
-                    styles.chipText,
-                    isActive && styles.chipTextActive,
-                    isActive && isPaid && styles.chipTextSecondary,
-                    isActive && isCancelled && styles.chipTextError,
-                  ]}>
-                    {filter.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+          <StatusFlow 
+            activeStatus={activeStatus} 
+            onStatusChange={(status) => {
+              setActiveStatus(status);
+              setPage(1);
+            }} 
+          />
 
           {/* Advanced Filters */}
           <View style={styles.advancedFilters}>
@@ -233,7 +166,7 @@ export default function OrdersScreen() {
               <OrderCard 
                 key={order.id} 
                 order={order} 
-                onViewDetails={() => setSelectedOrderDetails(order)}
+                onViewDetails={() => router.push({ pathname: '/order-details', params: { orderId: order.id } })}
               />
             ))
           ) : (
@@ -278,6 +211,7 @@ export default function OrdersScreen() {
         selectedStoreId={selectedStoreId}
         onSelect={(id) => {
           setSelectedStoreId(id);
+          setPage(1);
           setShowStoreModal(false);
         }}
       />
@@ -290,65 +224,7 @@ export default function OrdersScreen() {
         }}
       />
 
-      <OrderDetailsModal 
-        visible={!!selectedOrderDetails}
-        onClose={() => setSelectedOrderDetails(null)}
-        order={selectedOrderDetails}
-      />
     </View>
-  );
-}
-
-function StoreSelectorModal({ visible, onClose, stores, selectedStoreId, onSelect }: { 
-  visible: boolean, 
-  onClose: () => void, 
-  stores: any[], 
-  selectedStoreId: string | number,
-  onSelect: (id: string | number) => void 
-}) {
-  return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Seleccionar Tienda</Text>
-            <TouchableOpacity onPress={onClose}>
-              <MaterialIcons name="close" size={24} color={Theme.colors.onSurface} />
-            </TouchableOpacity>
-          </View>
-          
-          <ScrollView style={styles.modalList}>
-            <TouchableOpacity 
-              style={[styles.modalItem, selectedStoreId === '' && styles.modalItemActive]}
-              onPress={() => onSelect('')}
-            >
-              <Text style={[styles.modalItemText, selectedStoreId === '' && styles.modalItemTextActive]}>
-                Todas las Tiendas
-              </Text>
-              {selectedStoreId === '' && <MaterialIcons name="check" size={20} color={Theme.colors.primary} />}
-            </TouchableOpacity>
-
-            {stores.map((store) => (
-              <TouchableOpacity 
-                key={store.id}
-                style={[styles.modalItem, selectedStoreId === store.id && styles.modalItemActive]}
-                onPress={() => onSelect(store.id)}
-              >
-                <Text style={[styles.modalItemText, selectedStoreId === store.id && styles.modalItemTextActive]}>
-                  {store.name}
-                </Text>
-                {selectedStoreId === store.id && <MaterialIcons name="check" size={20} color={Theme.colors.primary} />}
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-      </View>
-    </Modal>
   );
 }
 
@@ -421,105 +297,6 @@ function DateRangeModal({ visible, onClose, onSelect }: {
         </View>
       </View>
     </Modal>
-  );
-}
-
-function OrderDetailsModal({ visible, onClose, order }: { visible: boolean, onClose: () => void, order: any }) {
-  if (!order) return null;
-
-  const items = order.items || [];
-  const pricing = order.pricing || {};
-  const subtotal = items.reduce((acc: number, item: any) => acc + (parseFloat(item.price || '0') * item.quantity), 0);
-
-  return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.modalOverlay}>
-        <View style={styles.detailsModalContent}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Productos - Pedido {order.reference}</Text>
-          </View>
-          
-          <ScrollView style={styles.detailsList}>
-            {/* Table Header */}
-            <View style={styles.tableHeader}>
-              <View style={{ width: 55 }}><Text style={styles.tableHeadText}>REF.</Text></View>
-              <Text style={[styles.tableHeadText, { flex: 2, paddingLeft: 10 }]}>PRODUCTO</Text>
-              <Text style={[styles.tableHeadText, { width: 45, textAlign: 'center' }]}>CANT.</Text>
-              <Text style={[styles.tableHeadText, { flex: 1, textAlign: 'right' }]}>PRECIO V.</Text>
-              <Text style={[styles.tableHeadText, { flex: 1, textAlign: 'right' }]}>IMPORTE</Text>
-            </View>
-
-            {items.map((item: any, idx: number) => {
-              const product = item.product || {};
-              const images = product.images || [];
-              const firstImage = images[0];
-              const imageId = typeof firstImage === 'object' ? firstImage.id : firstImage;
-              const fullImageUrl = imageId ? `https://shop.giborcommunity.com/api/media-url/${imageId}` : null;
-              const itemTotal = parseFloat(item.price || '0') * item.quantity;
-
-              return (
-                <View key={idx} style={styles.tableRow}>
-                  <View style={{ width: 55 }}>
-                    {fullImageUrl ? (
-                      <Image source={{ uri: fullImageUrl }} style={styles.tableProductImg} resizeMode="cover" />
-                    ) : (
-                      <View style={[styles.tableProductImg, { backgroundColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center' }]}>
-                        <MaterialIcons name="image" size={20} color="#ccc" />
-                      </View>
-                    )}
-                  </View>
-                  <Text style={[styles.tableBodyText, { flex: 2, paddingLeft: 10, fontWeight: '700' }]}>{product.name || 'Producto'}</Text>
-                  <View style={{ width: 45, alignItems: 'center' }}>
-                    <View style={styles.qtyBadge}>
-                      <Text style={styles.qtyBadgeText}>x{item.quantity}</Text>
-                    </View>
-                  </View>
-                  <Text style={[styles.tableBodyText, { flex: 1, textAlign: 'right' }]}>{item.price}</Text>
-                  <Text style={[styles.tableBodyText, { flex: 1, textAlign: 'right', fontWeight: '800' }]}>{itemTotal.toFixed(2)}</Text>
-                </View>
-              );
-            })}
-
-            {/* Totals Section */}
-            <View style={styles.detailsTotals}>
-              <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>SUBTOTAL</Text>
-                <Text style={styles.totalValueSm}>{formatCurrency(subtotal, order.currency)}</Text>
-              </View>
-              <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>ENVÍO</Text>
-                <Text style={styles.totalValueSm}>{formatCurrency(pricing.shipping, order.currency)}</Text>
-              </View>
-              <View style={[styles.totalRow, { marginTop: 12 }]}>
-                <Text style={styles.totalLabelLarge}>TOTAL</Text>
-                <Text style={styles.totalValueLarge}>{formatCurrency(pricing.total, order.currency)}</Text>
-              </View>
-            </View>
-          </ScrollView>
-
-          <View style={styles.modalFooter}>
-            <TouchableOpacity style={styles.closeModalBtn} onPress={onClose}>
-              <Text style={styles.closeModalBtnText}>Cerrar</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
-function FilterDropdown({ icon, label, value, onPress }: { icon: string, label: string, value: string, onPress?: () => void }) {
-  return (
-    <TouchableOpacity style={styles.filterBox} onPress={onPress}>
-      <View style={styles.filterLabelRow}>
-        <MaterialIcons name={icon as any} size={14} color={Theme.colors.onSurfaceVariant} />
-        <Text style={styles.filterLabel}>{label}</Text>
-      </View>
-      <View style={styles.filterValueRow}>
-        <Text style={styles.filterValue}>{value}</Text>
-        <MaterialIcons name="expand-more" size={20} color={Theme.colors.onSurfaceVariant} />
-      </View>
-    </TouchableOpacity>
   );
 }
 
@@ -670,29 +447,12 @@ function OrderCard({ order, onViewDetails }: { order: any, onViewDetails: () => 
       {/* Action Bar */}
       <View style={styles.cardActions}>
         <View style={styles.actionLeft}>
-           {/* 
-           <TouchableOpacity style={[styles.actionBtn, { borderColor: isPaid ? Theme.colors.tertiary : Theme.colors.outline }]}>
-              <MaterialIcons 
-                name={order.status === 'pending' ? 'close' : 'check'} 
-                size={18} 
-                color={isPaid ? Theme.colors.tertiary : Theme.colors.onSurfaceVariant} 
-              />
-              <Text style={[styles.actionBtnText, { color: isPaid ? Theme.colors.tertiary : Theme.colors.onSurfaceVariant }]}>
-                {order.status === 'pending' ? 'Anular' : 'Verificado'}
-              </Text>
-           </TouchableOpacity>
-           */}
         </View>
 
         <View style={styles.actionRight}>
           <TouchableOpacity style={styles.circleActionBtn} onPress={onViewDetails}>
             <MaterialIcons name="visibility" size={20} color={Theme.colors.tertiary} />
           </TouchableOpacity>
-          {/*
-          <TouchableOpacity style={styles.circleActionBtnSecondary}>
-            <MaterialIcons name="chat-bubble" size={20} color={Theme.colors.secondary} />
-          </TouchableOpacity>
-          */}
         </View>
       </View>
     </View>
@@ -722,23 +482,6 @@ const styles = StyleSheet.create({
     ...Theme.typography.headlineLg,
     color: Theme.colors.onSurface,
   } as const,
-  createButton: {
-    backgroundColor: Theme.colors.primaryContainer,
-    paddingVertical: 10,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  } as const,
-  createButtonText: {
-    ...Theme.typography.labelLg,
-    color: Theme.colors.onPrimaryContainer,
-    fontWeight: '600',
-  } as const,
   filtersSection: {
     padding: 16,
     gap: 12,
@@ -758,97 +501,9 @@ const styles = StyleSheet.create({
     color: Theme.colors.onSurfaceVariant,
     fontWeight: '500',
   } as const,
-  chipsScroll: {
-    marginTop: 4,
-  } as const,
-  chipsContainer: {
-    gap: 8,
-    paddingRight: 20,
-  } as const,
-  statusChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: '#f0eded',
-    borderWidth: 1,
-    borderColor: '#e4e2e1',
-    gap: 6,
-  } as const,
-  statusChipActive: {
-    backgroundColor: '#ffffff',
-    borderColor: Theme.colors.primary,
-    borderWidth: 2,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-  } as const,
-  statusChipSecondary: {
-    backgroundColor: '#eff6ff',
-    borderColor: '#2563eb',
-    borderWidth: 2,
-  } as const,
-  statusChipError: {
-    backgroundColor: '#fef2f2',
-    borderColor: '#dc2626',
-    borderWidth: 2,
-  } as const,
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  } as const,
-  chipText: {
-    ...Theme.typography.labelMd,
-    color: Theme.colors.onSurfaceVariant,
-    fontWeight: '500',
-  } as const,
-  chipTextActive: {
-    color: Theme.colors.primary,
-    fontWeight: '900',
-  } as const,
-  chipTextSecondary: {
-    color: '#1e40af',
-    fontWeight: '900',
-  } as const,
-  chipTextError: {
-    color: '#991b1b',
-    fontWeight: '900',
-  } as const,
   advancedFilters: {
     flexDirection: 'row',
     gap: 12,
-  } as const,
-  filterBox: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#e4e2e1',
-    borderRadius: 8,
-    padding: 12,
-    backgroundColor: '#ffffff',
-  } as const,
-  filterLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginBottom: 4,
-  } as const,
-  filterLabel: {
-    ...Theme.typography.labelSm,
-    color: Theme.colors.onSurfaceVariant,
-    textTransform: 'uppercase',
-  } as const,
-  filterValueRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  } as const,
-  filterValue: {
-    ...Theme.typography.bodyMd,
-    color: Theme.colors.onSurface,
   } as const,
   totalBar: {
     backgroundColor: '#f0eded',
@@ -984,12 +639,6 @@ const styles = StyleSheet.create({
     ...Theme.typography.bodyMd,
     color: Theme.colors.onSurface,
   } as const,
-  trackingRow: {
-    marginTop: 4,
-    paddingTop: 4,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(68, 143, 253, 0.1)',
-  } as const,
   itemsCard: {
     backgroundColor: '#ffffff',
     borderRadius: 12,
@@ -1057,38 +706,10 @@ const styles = StyleSheet.create({
     color: Theme.colors.secondary,
     fontWeight: '700',
   } as const,
-  trackingBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(12, 100, 235, 0.05)',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(12, 100, 235, 0.1)',
-    marginBottom: 16,
-  } as const,
-  trackingText: {
-    ...Theme.typography.bodyMd,
-    color: Theme.colors.onSurfaceVariant,
-  } as const,
-  badgeRow: {
-    flexDirection: 'row',
-    gap: 8,
-    flexWrap: 'wrap',
-    marginBottom: 12,
-  } as const,
-  storeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f0eded',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+  dot: {
+    width: 8,
+    height: 8,
     borderRadius: 4,
-  } as const,
-  storeBadgeText: {
-    ...Theme.typography.labelMd,
-    color: Theme.colors.onSurface,
   } as const,
   statusBadge: {
     flexDirection: 'row',
@@ -1127,30 +748,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   } as const,
-  actionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: '#fff',
-  } as const,
-  actionBtnText: {
-    ...Theme.typography.labelMd,
-    fontWeight: '700',
-  } as const,
-  smallIconBtn: {
-    backgroundColor: '#f6f3f2',
-    borderWidth: 1,
-    borderColor: '#e4e2e1',
-    borderRadius: 8,
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  } as const,
   actionRight: {
     flexDirection: 'row',
     gap: 8,
@@ -1160,14 +757,6 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     backgroundColor: 'rgba(68, 196, 115, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  } as const,
-  circleActionBtnSecondary: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(68, 143, 253, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
   } as const,
@@ -1208,8 +797,6 @@ const styles = StyleSheet.create({
     ...Theme.typography.labelMd,
     color: Theme.colors.onSurfaceVariant,
   } as const,
-
-  // Modal Styles
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -1246,16 +833,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 4,
   } as const,
-  modalItemActive: {
-    backgroundColor: 'rgba(68, 143, 253, 0.05)',
-  } as const,
   modalItemText: {
     ...Theme.typography.bodyLg,
     color: Theme.colors.onSurface,
-  } as const,
-  modalItemTextActive: {
-    color: Theme.colors.primary,
-    fontWeight: '700',
   } as const,
   logisticsBadgesRow: {
     flexDirection: 'row',
@@ -1294,124 +874,5 @@ const styles = StyleSheet.create({
     ...Theme.typography.labelMd,
     color: Theme.colors.secondary,
     fontWeight: '700',
-  } as const,
-  detailsModalContent: {
-    backgroundColor: '#ffffff',
-    borderRadius: 24,
-    margin: 16,
-    maxHeight: '90%',
-    width: '95%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2,
-    shadowRadius: 20,
-    elevation: 10,
-    overflow: 'hidden',
-  } as const,
-  detailsList: {
-    padding: 16,
-  } as const,
-  tableHeader: {
-    flexDirection: 'row',
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f2f2f2',
-    marginBottom: 8,
-  } as const,
-  tableHeadText: {
-    ...Theme.typography.labelSm,
-    color: '#94a3b8',
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  } as const,
-  tableRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f8f9fa',
-  } as const,
-  tableProductImg: {
-    width: 48,
-    height: 48,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#f2f2f2',
-  } as const,
-  tableBodyText: {
-    ...Theme.typography.bodyMd,
-    color: '#1e293b',
-    paddingHorizontal: 4,
-  } as const,
-  qtyBadge: {
-    backgroundColor: '#f1f5f9',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 999,
-  } as const,
-  qtyBadgeText: {
-    ...Theme.typography.labelSm,
-    color: '#64748b',
-    fontWeight: '700',
-  } as const,
-  detailsTotals: {
-    marginTop: 20,
-    padding: 16,
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: '#f2f2f2',
-  } as const,
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    gap: 20,
-  } as const,
-  totalLabel: {
-    ...Theme.typography.labelMd,
-    color: '#94a3b8',
-    fontWeight: '700',
-    width: 100,
-    textAlign: 'right',
-  } as const,
-  totalValueSm: {
-    ...Theme.typography.bodyMd,
-    color: '#1e293b',
-    fontWeight: '700',
-    width: 120,
-    textAlign: 'right',
-  } as const,
-  totalLabelLarge: {
-    ...Theme.typography.headlineSm,
-    color: '#1e293b',
-    fontWeight: '800',
-    width: 100,
-    textAlign: 'right',
-  } as const,
-  totalValueLarge: {
-    ...Theme.typography.headlineMd,
-    color: Theme.colors.onSurface,
-    fontWeight: '900',
-    width: 180,
-    textAlign: 'right',
-  } as const,
-  modalFooter: {
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#f2f2f2',
-    alignItems: 'flex-end',
-  } as const,
-  closeModalBtn: {
-    backgroundColor: '#1e293b',
-    paddingHorizontal: 32,
-    paddingVertical: 12,
-    borderRadius: 12,
-  } as const,
-  closeModalBtnText: {
-    ...Theme.typography.labelLg,
-    color: '#ffffff',
-    fontWeight: '700',
-  } as const,
+  },
 });
