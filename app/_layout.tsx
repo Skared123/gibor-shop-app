@@ -9,6 +9,7 @@ import 'react-native-reanimated';
 import { useColorScheme } from '@/components/useColorScheme';
 import { AppDataProvider } from '@/context/AppDataContext';
 import { LogBox } from 'react-native';
+import NavigationDrawer from '@/components/NavigationDrawer';
 
 // Suppress VirtualizedList warning globally (LogBox)
 LogBox.ignoreLogs([
@@ -69,6 +70,7 @@ function RootLayoutNav() {
   return (
     <AppDataProvider>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <NavigationDrawer />
         <Stack>
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

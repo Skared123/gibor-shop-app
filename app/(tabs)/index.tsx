@@ -10,6 +10,7 @@ import { ActivityIndicator, Modal, FlatList } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
 import { Dimensions } from 'react-native';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
+import TopAppBar from '@/components/TopAppBar';
 
 // Configuración de idioma para el calendario
 LocaleConfig.locales['es'] = {
@@ -25,7 +26,7 @@ const screenWidth = Dimensions.get('window').width;
 
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
-  const { selectedStore, stores, setSelectedStore, api } = useAppData();
+  const { selectedStore, stores, setSelectedStore, api, openDrawer } = useAppData();
   
   const [salesData, setSalesData] = React.useState<any[]>([]);
   const [topProducts, setTopProducts] = React.useState<any[]>([]);
@@ -134,16 +135,7 @@ export default function DashboardScreen() {
 
   return (
     <View style={styles.flex}>
-      {/* TopAppBar */}
-      <View style={[styles.topAppBar, { paddingTop: insets.top, height: 64 + insets.top }]}>
-        <TouchableOpacity style={styles.iconButton}>
-          <MaterialIcons name="menu" size={24} color={Theme.colors.primary} />
-        </TouchableOpacity>
-        <Text style={styles.appTitle}>GIBOR SHOP</Text>
-        <TouchableOpacity style={styles.iconButton}>
-          <MaterialIcons name="notifications" size={24} color={Theme.colors.primary} />
-        </TouchableOpacity>
-      </View>
+      <TopAppBar />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Welcome Section */}
@@ -541,18 +533,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Theme.colors.background,
   },
-  topAppBar: {
-    height: 64,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f2f2f2',
-    ...Theme.elevation.level1,
-    zIndex: 100,
-  },
+
   iconButton: {
     padding: 8,
     borderRadius: 20,

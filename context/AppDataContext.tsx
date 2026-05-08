@@ -47,6 +47,10 @@ interface AppDataContextType {
   setSelectedStore: (store: Store) => void;
   setPreferredCountry: (country: any) => void;
   refreshStores: () => Promise<void>;
+  isDrawerOpen: boolean;
+  openDrawer: () => void;
+  closeDrawer: () => void;
+  toggleDrawer: () => void;
 }
 
 const AppDataContext = createContext<AppDataContextType | undefined>(undefined);
@@ -62,6 +66,11 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [preferredCountry, setPreferredCountryState] = useState<any | null>(null);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  const openDrawer = () => setIsDrawerOpen(true);
+  const closeDrawer = () => setIsDrawerOpen(false);
+  const toggleDrawer = () => setIsDrawerOpen(prev => !prev);
 
   const api = axios.create({
     baseURL: BASE_URL,
@@ -217,6 +226,10 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setPreferredCountry,
         refreshStores,
         toggleFavorite,
+        isDrawerOpen,
+        openDrawer,
+        closeDrawer,
+        toggleDrawer,
       }}
     >
       {children}

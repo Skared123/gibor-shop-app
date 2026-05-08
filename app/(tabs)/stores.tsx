@@ -3,6 +3,8 @@ import { StyleSheet, ScrollView, View, Text, TouchableOpacity } from 'react-nati
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Theme } from '@/constants/Theme';
+import { useAppData } from '@/context/AppDataContext';
+import TopAppBar from '@/components/TopAppBar';
 
 const STORES = [
   {
@@ -25,19 +27,11 @@ const STORES = [
 
 export default function StoresScreen() {
   const insets = useSafeAreaInsets();
+  const { openDrawer } = useAppData();
 
   return (
     <View style={styles.flex}>
-      {/* TopAppBar */}
-      <View style={[styles.topAppBar, { paddingTop: insets.top, height: 64 + insets.top }]}>
-        <View style={styles.avatarPlaceholder}>
-          <MaterialIcons name="account-circle" size={24} color={Theme.colors.onSurfaceVariant} />
-        </View>
-        <Text style={styles.appTitle}>GIBOR SHOP</Text>
-        <TouchableOpacity style={styles.iconButton}>
-          <MaterialIcons name="notifications" size={24} color={Theme.colors.primary} />
-        </TouchableOpacity>
-      </View>
+      <TopAppBar />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Header Section */}
@@ -89,23 +83,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Theme.colors.background,
   } as const,
-  topAppBar: {
-    height: 64,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f2f2f2',
-    ...Theme.elevation.level1,
-    zIndex: 100,
-  } as const,
-  avatarPlaceholder: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#f6f3f2',
+
+  menuButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f0eded',
     justifyContent: 'center',
     alignItems: 'center',
   } as const,
