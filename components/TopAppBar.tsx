@@ -8,18 +8,37 @@ import { useAppData } from '@/context/AppDataContext';
 interface TopAppBarProps {
   title?: string;
   showNotifications?: boolean;
+  onBack?: () => void;
+  showMenu?: boolean;
 }
 
-export default function TopAppBar({ title = 'GIBOR SHOP', showNotifications = true }: TopAppBarProps) {
+export default function TopAppBar({ 
+  title = 'GIBOR SHOP', 
+  showNotifications = true,
+  onBack,
+  showMenu = true
+}: TopAppBarProps) {
   const insets = useSafeAreaInsets();
   const { openDrawer } = useAppData();
 
   return (
     <View style={[styles.topAppBar, { paddingTop: insets.top, height: 64 + insets.top }]}>
-      <TouchableOpacity style={styles.iconButton} onPress={openDrawer}>
-        <MaterialIcons name="menu" size={24} color={Theme.colors.primary} />
-      </TouchableOpacity>
-      <Text style={styles.appTitle}>{title}</Text>
+      {onBack ? (
+        <TouchableOpacity style={styles.iconButton} onPress={onBack}>
+          <MaterialIcons name="arrow-back" size={24} color={Theme.colors.onSurface} />
+        </TouchableOpacity>
+      ) : showMenu ? (
+        <TouchableOpacity style={styles.iconButton} onPress={openDrawer}>
+          <MaterialIcons name="menu" size={24} color={Theme.colors.primary} />
+        </TouchableOpacity>
+      ) : (
+        <View style={styles.iconButton} />
+      )}
+      
+      <Text style={[styles.appTitle, onBack && { color: Theme.colors.onSurface, textTransform: 'none', fontWeight: '600' }]}>
+        {title}
+      </Text>
+
       {showNotifications ? (
         <TouchableOpacity style={styles.iconButton}>
           <MaterialIcons name="notifications" size={24} color={Theme.colors.primary} />

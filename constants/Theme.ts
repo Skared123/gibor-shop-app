@@ -32,6 +32,8 @@ export const Theme = {
     pendingTint: '#fff8e1',
     pendingTintText: '#f57f17',
     primaryFixed: '#ffdcc3',
+    secondaryFixed: '#d7e3ff',
+    tertiaryFixed: '#7efba4',
   },
   typography: {
     headlineLg: {
