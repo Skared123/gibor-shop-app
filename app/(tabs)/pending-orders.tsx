@@ -224,7 +224,7 @@ function PendingOrderCard({ order, onViewDetails, onRefresh }: { order: any, onV
           type: `image/${fileType}`,
         });
 
-        const uploadResponse = await api.post('/api/media', formData, {
+        const uploadResponse = await api.post('/media', formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
 

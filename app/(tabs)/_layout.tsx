@@ -75,6 +75,7 @@ export default function TabLayout() {
           options={{
             title: 'Cupones',
             tabBarIcon: ({ color }) => <TabBarIcon name="local-offer" color={color} />,
+            href: null,
           }}
         />
         <Tabs.Screen
@@ -90,7 +91,7 @@ export default function TabLayout() {
           options={{
             title: 'More',
             tabBarIcon: ({ color }) => <TabBarIcon name="more-horiz" color={color} />,
-            href: null, // Ocultar de la barra si se prefiere
+            href: null,
           }}
         />
       </Tabs>

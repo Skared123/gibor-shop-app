@@ -85,7 +85,7 @@ export default function NavigationDrawer() {
     { label: 'Shops', icon: 'storefront', path: '/stores' },
     { label: 'Pedidos Pendientes', icon: 'pending-actions', path: '/pending-orders', badge: pendingOrdersCount },
     { label: 'Historial de Pedidos', icon: 'history', path: '/orders' },
-    { label: 'Mis Cupones', icon: 'local-offer', path: '/coupons', isSpecial: true },
+    // { label: 'Mis Cupones', icon: 'local-offer', path: '/coupons', isSpecial: true },
   ];
 
   const userInitials = user?.email ? user.email.substring(0, 2).toUpperCase() : 'GS';
